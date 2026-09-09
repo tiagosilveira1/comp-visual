@@ -1,6 +1,6 @@
 /* Nomes dos integrantes
 Lucas Akio Funada Tsukamoto, RA: 10425346
-Luiz Filipe, RA: 10418230
+Luiz Filipe de Almeida Tannus, RA: 10418230
 Tiago Silveira Lopes, RA: 10417600
 Vitor Alves Pereira, RA: 10410862
 */
