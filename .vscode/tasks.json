@@ -1,0 +1,31 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "C/C++: gcc.exe build active file",
+			"command": "C:\\mingw64\\bin\\gcc.exe",
+			"args": [
+				"-fdiagnostics-color=always",
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}\\${fileBasenameNoExtension}.exe",
+				"-IC:\\Program Files\\SDL3-3.4.14\\SDL3\\include",
+				"-LC:\\Program Files\\SDL3-3.4.14\\SDL3\\lib",
+				"-lSDL3",
+				"-IC:\\Program Files\\SDL3-3.4.14\\SDL3_Image\\include",
+				"-LC:\\Program Files\\SDL3-3.4.14\\SDL3_Image\\lib",
+				"-lSDL3_image"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: C:\\mingw64\\bin\\gcc.exe"
+		}
+	]
+}
