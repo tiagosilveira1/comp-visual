@@ -1,4 +1,4 @@
-# Etapa 1: Análise final e implementação
+# Etapa 2: Análise final e implementação
 
 # Nomes e RAs dos integrantes
 - Lucas Akio Funada Tsukamoto, RA: 10425346
