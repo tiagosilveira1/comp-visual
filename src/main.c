@@ -36,6 +36,7 @@ typedef struct MyImage MyImage;
 struct MyImage
 {
   SDL_Surface *surface;
+  SDL_Surface *surface_original;
   SDL_Texture *texture;
   SDL_FRect rect;
 };
@@ -59,6 +60,14 @@ struct Histograma
 
   const char *classificacao_brilho;
   const char *classificacao_contraste;
+};
+
+typedef struct Botao Botao;
+struct Botao
+{
+  SDL_FRect rect;
+  bool mouse;
+  bool click;
 };
 
 //------------------------------------------------------------------------------
@@ -102,6 +111,15 @@ MyImage *carregar_imagem(const char *file, SDL_Renderer *renderer) {
   image->rect.h = image->surface->h;
 
   return image;
+}
+
+void copiar_surface(MyImage *image) {
+  if (!image || !image->surface) {
+    SDL_Log("Erro: MyImage ou surface é NULL.");
+    return;
+  }
+
+  image->surface_original = SDL_DuplicateSurface(image->surface);
 }
 
 //------------------------------------------------------------------------------
@@ -462,6 +480,166 @@ void desenhar_informacoes(SDL_Renderer *renderer, TTF_Font *fonte, Histograma *h
 }
 
 //------------------------------------------------------------------------------
+/*Etapa 5: Equalização do histograma e botão
+*/
+
+/*
+Essa primeira função é chamada quando o usuário clica no botão "Ver original", e restaura a surface da imagem para a versão original, que foi salva no início do programa.
+*/
+void restaurar_imagem_original(MyImage *image)
+{
+  SDL_BlitSurface(image->surface_original,NULL,image->surface,NULL);
+}
+
+/*
+Utilizada no processo de equalização, a surface da imagem é substituída pela versão equalizada, e a texture é atualizada para refletir a mudança na surface.
+*/
+
+void atualizar_textura(MyImage *image, MyWindow *window)
+{
+  SDL_DestroyTexture(image->texture);
+
+  image->texture = SDL_CreateTextureFromSurface(window->renderer, image->surface);
+}
+
+/*
+Equalização do histograma, percorrendo seus valores e os alterando pela fórmula de equalização, que é a distribuição cumulativa dos pixels, normalizada para o intervalo [0, 255].
+*/
+
+void equalizar_histograma(MyImage *image, Histograma *histograma, MyWindow *window)
+{
+  int total_pixels = image->surface->w * image->surface->h;
+
+  int cdf[256];
+
+  cdf[0] = histograma->valores[0];
+
+  for (int i = 1; i < 256; ++i)
+  {
+    cdf[i] = cdf[i - 1] + histograma->valores[i];
+  }
+
+  int cdf_min = 0;
+
+  for (int i = 0; i < 256; ++i)
+  {
+    if (cdf[i] > 0)
+    {
+      cdf_min = cdf[i];
+      break;
+    }
+  }
+
+  for (int row = 0; row < image->surface->h; ++row)
+  {
+    Uint32 *linha = (Uint32 *)((Uint8 *)image->surface->pixels + row * image->surface->pitch);
+
+    for (int col = 0; col < image->surface->w; ++col)
+    {
+      Uint32 pixel = linha[col];
+
+      Uint8 r, g, b;
+
+      SDL_GetRGB(pixel,SDL_GetPixelFormatDetails(image->surface->format),SDL_GetSurfacePalette(image->surface),&r, &g, &b);
+
+      int novo_valor = (int)(((double)(cdf[r] - cdf_min) / (double)(total_pixels - cdf_min)) * 255.0);
+
+      if (novo_valor < 0)
+        novo_valor = 0;
+
+      if (novo_valor > 255)
+        novo_valor = 255;
+
+      linha[col] = SDL_MapSurfaceRGBA(image->surface,novo_valor,novo_valor,novo_valor,255);
+    }
+  }
+
+}
+
+/*
+Display do botão: abaixo do histograma na janela secundária e com o texto explicativo "Equalizar" ou "Ver original" dependendo do estado do botão
+*/
+
+void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte)
+{
+  if (botao->mouse)
+  {
+    SDL_SetRenderDrawColor(renderer, 100, 180, 255, 255);
+  }
+  else if (botao->click)
+  {
+    SDL_SetRenderDrawColor(renderer, 0, 70, 160, 255);
+  }
+  else
+  {
+    SDL_SetRenderDrawColor(renderer, 30, 120, 220, 255);
+  }
+
+  SDL_RenderFillRect(renderer, &botao->rect);
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderRect(renderer, &botao->rect);
+
+   // -----------------------------------------
+  // Texto do botão
+  // -----------------------------------------
+
+  const char *texto;
+
+  if (botao->click)
+    texto = "Ver original";
+  else
+    texto = "Equalizar";
+
+  SDL_Color branco = {255, 255, 255, 255};
+
+  SDL_Surface *surface_texto =
+      TTF_RenderText_Blended(
+          fonte,
+          texto,
+          0,
+          branco);
+
+  if (!surface_texto)
+    return;
+
+  SDL_Texture *texture_texto =
+      SDL_CreateTextureFromSurface(
+          renderer,
+          surface_texto);
+
+  if (!texture_texto)
+  {
+    SDL_DestroySurface(surface_texto);
+    return;
+  }
+
+  SDL_FRect rect_texto;
+
+  rect_texto.w = (float)surface_texto->w;
+  rect_texto.h = (float)surface_texto->h;
+
+  // Centralizar horizontalmente
+  rect_texto.x =
+      botao->rect.x +
+      (botao->rect.w - rect_texto.w) / 2.0f;
+
+  // Centralizar verticalmente
+  rect_texto.y =
+      botao->rect.y +
+      (botao->rect.h - rect_texto.h) / 2.0f;
+
+  SDL_RenderTexture(
+      renderer,
+      texture_texto,
+      NULL,
+      &rect_texto);
+
+  SDL_DestroyTexture(texture_texto);
+  SDL_DestroySurface(surface_texto);
+}
+
+//------------------------------------------------------------------------------
 /*Função utilizada do repositório do professor
 Disponível em: https://github.com/profkishimoto/CompVis262/blob/main/src/05-filter_image/main.c
 */
@@ -513,6 +691,13 @@ void MyImage_destroy(MyImage *image)
     image->surface = NULL;
   }
 
+  if (image->surface_original)
+  {
+  SDL_Log("\tDestruindo MyImage->surface_original...");
+  SDL_DestroySurface(image->surface_original);
+  image->surface_original = NULL;
+  }
+
   SDL_Log("\tRedefinindo MyImage->rect...");
   image->rect.x = image->rect.y = image->rect.w = image->rect.h = 0.0f;
 
@@ -522,7 +707,7 @@ void MyImage_destroy(MyImage *image)
 }
 
 //------------------------------------------------------------------------------
-void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma *histograma, TTF_Font *fonte)
+void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **histograma, TTF_Font *fonte, Botao *botao)
 {
   SDL_Event event;
 
@@ -544,6 +729,37 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma *hi
 
           snprintf(windowTitle, WINDOW_TITLE_MAX_LENGTH, "%s (%.0f, %.0f)", "Hello, SDL_image", event.motion.x, event.motion.y);
           SDL_SetWindowTitle(window->window, windowTitle);
+
+          botao->mouse = event.motion.x >= botao->rect.x && event.motion.x <= botao->rect.x + botao->rect.w && event.motion.y >= botao->rect.y && event.motion.y <= botao->rect.y + botao->rect.h;
+          break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+          if (event.button.button == SDL_BUTTON_LEFT)
+          {
+            float mouse_x = event.button.x;
+            float mouse_y = event.button.y;
+
+            bool dentro = mouse_x >= botao->rect.x && mouse_x <= botao->rect.x + botao->rect.w && mouse_y >= botao->rect.y && mouse_y <= botao->rect.y + botao->rect.h;
+
+            if (dentro)
+            {
+              botao->click = !botao->click;
+
+              if (botao->click)
+              {
+                equalizar_histograma(image,*histograma,infoWindow);
+                atualizar_textura(image, window);
+              }
+              else
+              {
+                restaurar_imagem_original(image);
+                atualizar_textura(image, window);
+              }
+
+              free(*histograma);
+
+              *histograma = gerar_histograma(image);
+            }
+          }
           break;
       }
     }
@@ -562,13 +778,23 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma *hi
 
     SDL_RenderClear(infoWindow->renderer);
 
-    desenhar_histograma(infoWindow->renderer,histograma);
+    desenhar_histograma(infoWindow->renderer,*histograma);
 
-    desenhar_informacoes(infoWindow->renderer,fonte,histograma);
+    desenhar_informacoes(infoWindow->renderer,fonte,*histograma);
+
+    desenhar_botao(infoWindow->renderer,botao,fonte);
 
     SDL_RenderPresent(infoWindow->renderer);
   }
 }
+
+/*
+Etapa 6: Exibição da imagem
+*/
+
+/*
+Etapa 7: Salvar imagem
+*/
 
 //------------------------------------------------------------------------------
 void shutdown(void)
@@ -587,6 +813,8 @@ int main(int argc, char *argv[])
 
   const char *WINDOW_TITLE = "Hello, SDL_image";
   const char *INFO_WINDOW_TITLE = "Hello, secondary window";
+
+  Botao botao;
 
   //-----------------------------------------------
   /*
@@ -607,6 +835,14 @@ int main(int argc, char *argv[])
   infoWindow.rect.y = 0.0f;
   infoWindow.rect.w = 0.0f;
   infoWindow.rect.h = 0.0f;
+
+  botao.rect.x = 90.0f;
+  botao.rect.y = 172.0f;
+  botao.rect.w = 140.0f;
+  botao.rect.h = 24.0f;
+
+  botao.mouse = false;
+  botao.click = false;
 
   //-----------------------------------------------
   // Inicialização da SDL -------------------------
@@ -702,6 +938,21 @@ int main(int argc, char *argv[])
   conversao_escala_de_cinza(image, window.renderer);
 
   //-----------------------------------------------
+  // Copiar a surface já em escala de cinza -------
+  copiar_surface(image);
+
+  if(!image->surface_original)
+  {
+    SDL_Log("Erro ao copiar a surface.");
+    MyImage_destroy(image);
+    MyWindow_destroy(&infoWindow);
+    MyWindow_destroy(&window);
+    TTF_Quit();
+    SDL_Quit();
+    return 1;
+  }
+
+  //-----------------------------------------------
   // Histograma da imagem -------------------
   Histograma *histograma = gerar_histograma(image);
 
@@ -719,7 +970,7 @@ int main(int argc, char *argv[])
 
   // Loop principal -------------------------------
 
-  loop(&window, &infoWindow, image, histograma, fonte);
+  loop(&window, &infoWindow, image, &histograma, fonte, &botao);
 
   //-----------------------------------------------
   // Finalização -----------------------------------
