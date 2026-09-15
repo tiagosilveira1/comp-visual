@@ -17,14 +17,14 @@ Vitor Alves Pereira, RA: 10410862
 
 /*
 Constantes para a janela (1024x768)
-Janela secundária com 320x200
+Janela secundária com 320x235
 */
 enum constants
   {
     WINDOW_WIDTH = 1024,
     WINDOW_HEIGHT = 768,
     INFO_WINDOW_WIDTH = 320,
-    INFO_WINDOW_HEIGHT = 200,
+    INFO_WINDOW_HEIGHT = 235,
     WINDOW_TITLE_MAX_LENGTH = 64,
   };
 
@@ -542,6 +542,8 @@ void equalizar_histograma(MyImage *image, Histograma *histograma, MyWindow *wind
 
       SDL_GetRGB(pixel,SDL_GetPixelFormatDetails(image->surface->format),SDL_GetSurfacePalette(image->surface),&r, &g, &b);
 
+      if (total_pixels == cdf_min){return;}
+
       int novo_valor = (int)(((double)(cdf[r] - cdf_min) / (double)(total_pixels - cdf_min)) * 255.0);
 
       if (novo_valor < 0)
@@ -560,7 +562,7 @@ void equalizar_histograma(MyImage *image, Histograma *histograma, MyWindow *wind
 Display do botão: abaixo do histograma na janela secundária e com o texto explicativo "Equalizar" ou "Ver original" dependendo do estado do botão
 */
 
-void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte)
+void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte, bool type)
 {
   if (botao->mouse)
   {
@@ -586,10 +588,26 @@ void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte)
 
   const char *texto;
 
-  if (botao->click)
-    texto = "Ver original";
-  else
-    texto = "Equalizar";
+  if(type == false) {
+    if (botao->click)
+    {
+      texto = "Ver original";
+    }
+    else
+    {
+      texto = "Equalizar";
+    }
+  }
+  else {
+    if (botao->click)
+    {
+      texto = "Resolução original";
+    }
+    else
+    {
+      texto = "1024x768";
+    }    
+  }
 
   SDL_Color branco = {255, 255, 255, 255};
 
@@ -637,6 +655,79 @@ void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte)
 
   SDL_DestroyTexture(texture_texto);
   SDL_DestroySurface(surface_texto);
+}
+
+/*
+Etapa 6: Exibição da imagem
+*/
+
+void redimensionar_imagem(MyWindow *window, int largura, int altura)
+{
+    SDL_SetWindowSize(window->window, largura, altura);
+
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+
+    SDL_Rect displayRect;
+
+    if (SDL_GetDisplayBounds(display, &displayRect))
+    {
+        int x;
+        int y;
+
+        if (largura > displayRect.w || altura > displayRect.h)
+        {
+            x = 0;
+            y = 0;
+        }
+        else
+        {
+            x = displayRect.x + (displayRect.w - largura) / 2;
+            y = displayRect.y + (displayRect.h - altura) / 2;
+        }
+
+        SDL_SetWindowPosition(window->window, x, y);
+    }
+}
+
+void alternar_resolucao(MyWindow *window, MyImage *image, Botao *botao)
+{
+    if (botao->click)
+    {
+        redimensionar_imagem(
+            window,
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT
+        );
+    }
+    else
+    {
+        redimensionar_imagem(
+            window,
+            image->surface->w,
+            image->surface->h
+        );
+    }
+}
+
+/*
+Etapa 7: Salvar imagem
+*/
+
+void salvar_imagem(MyImage *image)
+{
+    if (!image || !image->surface)
+    {
+        SDL_Log("\t*** Erro: imagem invalida.");
+        return;
+    }
+
+    if (SDL_SavePNG(image->surface, "output_image.png"))
+    {
+        SDL_Log("\t*** Arquivo output_image.png criado.");
+        return;
+    }
+
+    SDL_Log("\t*** Erro ao salvar imagem output_image.png.");
 }
 
 //------------------------------------------------------------------------------
@@ -707,7 +798,7 @@ void MyImage_destroy(MyImage *image)
 }
 
 //------------------------------------------------------------------------------
-void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **histograma, TTF_Font *fonte, Botao *botao)
+void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **histograma, TTF_Font *fonte, Botao *botao, Botao *botao_resolucao)
 {
   SDL_Event event;
 
@@ -730,15 +821,25 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **h
           snprintf(windowTitle, WINDOW_TITLE_MAX_LENGTH, "%s (%.0f, %.0f)", "Hello, SDL_image", event.motion.x, event.motion.y);
           SDL_SetWindowTitle(window->window, windowTitle);
 
-          botao->mouse = event.motion.x >= botao->rect.x && event.motion.x <= botao->rect.x + botao->rect.w && event.motion.y >= botao->rect.y && event.motion.y <= botao->rect.y + botao->rect.h;
+          if (event.motion.windowID == SDL_GetWindowID(infoWindow->window))
+          {
+            float mouse_x = event.motion.x;
+            float mouse_y = event.motion.y;
+
+            botao->mouse = mouse_x >= botao->rect.x && mouse_x <= botao->rect.x + botao->rect.w && mouse_y >= botao->rect.y && mouse_y <= botao->rect.y + botao->rect.h;
+
+            botao_resolucao->mouse = mouse_x >= botao_resolucao->rect.x && mouse_x <= botao_resolucao->rect.x + botao_resolucao->rect.w && mouse_y >= botao_resolucao->rect.y && mouse_y <= botao_resolucao->rect.y + botao_resolucao->rect.h;
+          }
           break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-          if (event.button.button == SDL_BUTTON_LEFT)
+          if (event.button.button == SDL_BUTTON_LEFT && event.button.windowID == SDL_GetWindowID(infoWindow->window))
           {
             float mouse_x = event.button.x;
             float mouse_y = event.button.y;
 
             bool dentro = mouse_x >= botao->rect.x && mouse_x <= botao->rect.x + botao->rect.w && mouse_y >= botao->rect.y && mouse_y <= botao->rect.y + botao->rect.h;
+
+            bool dentro_botao_resolucao = mouse_x >= botao_resolucao->rect.x && mouse_x <= botao_resolucao->rect.x + botao_resolucao->rect.w && mouse_y >= botao_resolucao->rect.y && mouse_y <= botao_resolucao->rect.y + botao_resolucao->rect.h;
 
             if (dentro)
             {
@@ -759,6 +860,19 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **h
 
               *histograma = gerar_histograma(image);
             }
+
+            if (dentro_botao_resolucao)
+            {
+            botao_resolucao->click = !botao_resolucao->click;
+
+            alternar_resolucao(window,image,botao_resolucao);
+          }
+          }
+          break;
+          case SDL_EVENT_KEY_DOWN:
+          if (event.key.key == SDLK_S)
+          {
+            salvar_imagem(image);
           }
           break;
       }
@@ -782,19 +896,13 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **h
 
     desenhar_informacoes(infoWindow->renderer,fonte,*histograma);
 
-    desenhar_botao(infoWindow->renderer,botao,fonte);
+    desenhar_botao(infoWindow->renderer,botao,fonte,false);
+
+    desenhar_botao(infoWindow->renderer,botao_resolucao,fonte,true);
 
     SDL_RenderPresent(infoWindow->renderer);
   }
 }
-
-/*
-Etapa 6: Exibição da imagem
-*/
-
-/*
-Etapa 7: Salvar imagem
-*/
 
 //------------------------------------------------------------------------------
 void shutdown(void)
@@ -815,6 +923,7 @@ int main(int argc, char *argv[])
   const char *INFO_WINDOW_TITLE = "Hello, secondary window";
 
   Botao botao;
+  Botao botao_resolucao;
 
   //-----------------------------------------------
   /*
@@ -843,6 +952,14 @@ int main(int argc, char *argv[])
 
   botao.mouse = false;
   botao.click = false;
+
+  botao_resolucao.rect.x = 90.0f;
+  botao_resolucao.rect.y = 202.0f;
+  botao_resolucao.rect.w = 140.0f;
+  botao_resolucao.rect.h = 24.0f;
+
+  botao_resolucao.mouse = false;
+  botao_resolucao.click = false;
 
   //-----------------------------------------------
   // Inicialização da SDL -------------------------
@@ -970,7 +1087,7 @@ int main(int argc, char *argv[])
 
   // Loop principal -------------------------------
 
-  loop(&window, &infoWindow, image, &histograma, fonte, &botao);
+  loop(&window, &infoWindow, image, &histograma, fonte, &botao, &botao_resolucao);
 
   //-----------------------------------------------
   // Finalização -----------------------------------
