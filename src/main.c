@@ -73,6 +73,7 @@ struct Botao
 //------------------------------------------------------------------------------
 MyImage *carregar_imagem(const char *file, SDL_Renderer *renderer) {
 
+  SDL_Log(">>> carregar_imagem()");
   SDL_Texture *texture = IMG_LoadTexture(renderer, file);
 
   MyImage *image = malloc(sizeof(MyImage));
@@ -129,6 +130,7 @@ void copiar_surface(MyImage *image) {
 //gy = 0.2125 * r + 0.7154 * g + 0.0721 * b
 bool imagem_esta_cinza(MyImage *image) {
 
+  SDL_Log(">>> imagem_esta_cinza()");
   for (int row = 0; row < image->surface->h; ++row)
   {
     Uint32 *linha = (Uint32 *)((Uint8 *)image->surface->pixels + row * image->surface->pitch);
@@ -142,17 +144,19 @@ bool imagem_esta_cinza(MyImage *image) {
 
       if (r != g || g != b)
       {
+        SDL_Log("\t\t*** Imagem eh colorida.");
         return false;
       }
     }
 
   }
-
+  SDL_Log("\t\t*** Imagem esta em escala de cinza.");
   return true;
 }
 
 void conversao_escala_de_cinza(MyImage *image, SDL_Renderer *renderer) {
 
+  SDL_Log(">>> conversao_escala_de_cinza()");
   if(!imagem_esta_cinza(image)) {
 
   for (int row = 0; row < image->surface->h; ++row)
@@ -202,7 +206,26 @@ bool MyWindow_initialize(MyWindow *window, const char *title, int width, int hei
     return false;
   }
 
-  return SDL_CreateWindowAndRenderer(title, width, height, window_flags, &window->window, &window->renderer);
+  if (!SDL_CreateWindowAndRenderer(title, width, height, window_flags, &window->window, &window->renderer))
+    {
+        return false;
+    }
+
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+
+    SDL_Rect display_bounds;
+
+    if (!SDL_GetDisplayBounds(display, &display_bounds))
+    {
+        return false;
+    }
+
+    int x = display_bounds.x + (display_bounds.w - width) / 2;
+    int y = display_bounds.y + (display_bounds.h - height) / 2;
+
+    SDL_SetWindowPosition(window->window, x, y);
+
+  return true;
 }
 //------------------------------------------------------------------------------
 
@@ -259,6 +282,8 @@ Incrementa o histograma de acordo com a intensidade de cada pixel da imagem (já
 */
 
 Histograma *gerar_histograma(MyImage *image) {
+
+  SDL_Log(">>> gerar_histograma()");
 
   Histograma *histograma = malloc(sizeof(Histograma));
 
@@ -361,6 +386,7 @@ Desenha o histograma na janela secundária
 
 void desenhar_histograma(SDL_Renderer *renderer, Histograma *histograma)
 {
+  //SDL_Log(">>> desenhar_histograma()");
   const float grafico_x = 10.0f;
   const float grafico_y = 10.0f;
   const float grafico_w = 300.0f;
@@ -398,10 +424,7 @@ void desenhar_histograma(SDL_Renderer *renderer, Histograma *histograma)
       continue;
     }
 
-    float altura =
-        ((float)histograma->valores[i] /
-         (float)maior_valor) *
-        grafico_h;
+    float altura = ((float)histograma->valores[i] / (float)maior_valor) * grafico_h;
 
     SDL_FRect barra;
 
@@ -420,6 +443,7 @@ Por fim, printa a média das intensidades e o desvio padrão na janela secundár
 
 void desenhar_informacoes(SDL_Renderer *renderer, TTF_Font *fonte, Histograma *histograma)
 {
+  //SDL_Log(">>> desenhar_informacoes()");
     SDL_Color preto = {0, 0, 0, 255};
 
     char texto[128];
@@ -488,6 +512,7 @@ Essa primeira função é chamada quando o usuário clica no botão "Ver origina
 */
 void restaurar_imagem_original(MyImage *image)
 {
+  SDL_Log(">>> restaurar_imagem_original()");
   SDL_BlitSurface(image->surface_original,NULL,image->surface,NULL);
 }
 
@@ -497,6 +522,7 @@ Utilizada no processo de equalização, a surface da imagem é substituída pela
 
 void atualizar_textura(MyImage *image, MyWindow *window)
 {
+  SDL_Log(">>> atualizar_textura()");
   SDL_DestroyTexture(image->texture);
 
   image->texture = SDL_CreateTextureFromSurface(window->renderer, image->surface);
@@ -508,6 +534,7 @@ Equalização do histograma, percorrendo seus valores e os alterando pela fórmu
 
 void equalizar_histograma(MyImage *image, Histograma *histograma, MyWindow *window)
 {
+  SDL_Log(">>> equalizar_histograma()");
   int total_pixels = image->surface->w * image->surface->h;
 
   int cdf[256];
@@ -564,6 +591,7 @@ Display do botão: abaixo do histograma na janela secundária e com o texto expl
 
 void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte, bool type)
 {
+  //SDL_Log(">>> desenhar_botao()");
   if (botao->mouse)
   {
     SDL_SetRenderDrawColor(renderer, 100, 180, 255, 255);
@@ -589,42 +617,22 @@ void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte, bool 
   const char *texto;
 
   if(type == false) {
-    if (botao->click)
-    {
-      texto = "Ver original";
-    }
-    else
-    {
-      texto = "Equalizar";
-    }
+    if (botao->click){texto = "Ver original";}
+    else{texto = "Equalizar";}
   }
   else {
-    if (botao->click)
-    {
-      texto = "Resolução original";
-    }
-    else
-    {
-      texto = "1024x768";
-    }    
+    if (botao->click){texto = "1024x768";}
+    else {texto = "Resolução Original";}    
   }
 
   SDL_Color branco = {255, 255, 255, 255};
 
-  SDL_Surface *surface_texto =
-      TTF_RenderText_Blended(
-          fonte,
-          texto,
-          0,
-          branco);
+  SDL_Surface *surface_texto = TTF_RenderText_Blended(fonte,texto,0,branco);
 
   if (!surface_texto)
     return;
 
-  SDL_Texture *texture_texto =
-      SDL_CreateTextureFromSurface(
-          renderer,
-          surface_texto);
+  SDL_Texture *texture_texto = SDL_CreateTextureFromSurface(renderer,surface_texto);
 
   if (!texture_texto)
   {
@@ -638,20 +646,12 @@ void desenhar_botao(SDL_Renderer *renderer, Botao *botao, TTF_Font *fonte, bool 
   rect_texto.h = (float)surface_texto->h;
 
   // Centralizar horizontalmente
-  rect_texto.x =
-      botao->rect.x +
-      (botao->rect.w - rect_texto.w) / 2.0f;
+  rect_texto.x = botao->rect.x + (botao->rect.w - rect_texto.w) / 2.0f;
 
   // Centralizar verticalmente
-  rect_texto.y =
-      botao->rect.y +
-      (botao->rect.h - rect_texto.h) / 2.0f;
+  rect_texto.y = botao->rect.y + (botao->rect.h - rect_texto.h) / 2.0f;
 
-  SDL_RenderTexture(
-      renderer,
-      texture_texto,
-      NULL,
-      &rect_texto);
+  SDL_RenderTexture(renderer,texture_texto,NULL,&rect_texto);
 
   SDL_DestroyTexture(texture_texto);
   SDL_DestroySurface(surface_texto);
@@ -663,6 +663,7 @@ Etapa 6: Exibição da imagem
 
 void redimensionar_imagem(MyWindow *window, int largura, int altura)
 {
+  SDL_Log(">>> redimensionar_imagem()");
     SDL_SetWindowSize(window->window, largura, altura);
 
     SDL_DisplayID display = SDL_GetPrimaryDisplay();
@@ -674,13 +675,8 @@ void redimensionar_imagem(MyWindow *window, int largura, int altura)
         int x;
         int y;
 
-        if (largura > displayRect.w || altura > displayRect.h)
-        {
-            x = 0;
-            y = 0;
-        }
-        else
-        {
+        if (largura > displayRect.w || altura > displayRect.h){x = 0; y = 0;}
+        else {
             x = displayRect.x + (displayRect.w - largura) / 2;
             y = displayRect.y + (displayRect.h - altura) / 2;
         }
@@ -691,22 +687,9 @@ void redimensionar_imagem(MyWindow *window, int largura, int altura)
 
 void alternar_resolucao(MyWindow *window, MyImage *image, Botao *botao)
 {
-    if (botao->click)
-    {
-        redimensionar_imagem(
-            window,
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT
-        );
-    }
-    else
-    {
-        redimensionar_imagem(
-            window,
-            image->surface->w,
-            image->surface->h
-        );
-    }
+    SDL_Log(">>> alternar_resolucao()");
+    if (botao->click){redimensionar_imagem(window,image->surface->w,image->surface->h);}
+    else {redimensionar_imagem(window,WINDOW_WIDTH,WINDOW_HEIGHT);}
 }
 
 /*
@@ -715,19 +698,35 @@ Etapa 7: Salvar imagem
 
 void salvar_imagem(MyImage *image)
 {
+    SDL_Log(">>> salvar_imagem()");
     if (!image || !image->surface)
     {
         SDL_Log("\t*** Erro: imagem invalida.");
         return;
     }
 
-    if (SDL_SavePNG(image->surface, "output_image.png"))
+    FILE *arquivo = fopen("output_image.png", "rb");
+    bool arquivo_exists = (arquivo != NULL);
+
+    if (arquivo)
     {
-        SDL_Log("\t*** Arquivo output_image.png criado.");
+        fclose(arquivo);
+    }
+
+    if (!SDL_SavePNG(image->surface, "output_image.png"))
+    {
+        SDL_Log("\t*** Erro ao salvar imagem output_image.png.");
         return;
     }
 
-    SDL_Log("\t*** Erro ao salvar imagem output_image.png.");
+    if (arquivo_exists)
+    {
+        SDL_Log("\t*** Arquivo output_image.png sobrescrito.");
+    }
+    else
+    {
+        SDL_Log("\t*** Arquivo output_image.png criado.");
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -762,6 +761,7 @@ Disponível em: https://github.com/profkishimoto/CompVis262/blob/main/src/05-fil
 */
 void MyImage_destroy(MyImage *image)
 {
+  SDL_Log(">>> MyImage_destroy()");
   if (!image)
   {
     SDL_Log("\t*** Erro: Imagem inválida (image == NULL).");
@@ -905,6 +905,30 @@ void loop(MyWindow *window, MyWindow *infoWindow, MyImage *image, Histograma **h
 }
 
 //------------------------------------------------------------------------------
+//Inicialização ----------------------------------------------------------------
+SDL_AppResult initialize(void)
+{
+  SDL_Log(">>> initialize()");
+
+  SDL_Log("\tIniciando SDL...");
+  if (!SDL_Init(SDL_INIT_VIDEO))
+  {
+    SDL_Log("\t*** Erro ao iniciar a SDL: %s", SDL_GetError());
+    SDL_Log("<<< initialize()");
+    return SDL_APP_FAILURE;
+  }
+  if (!TTF_Init())
+{
+    SDL_Log("Erro ao iniciar SDL_ttf: %s", SDL_GetError());
+    SDL_Quit();
+    return SDL_APP_FAILURE;
+}
+
+  SDL_Log("<<< initialize()");
+  return SDL_APP_CONTINUE;
+}
+
+//------------------------------------------------------------------------------
 void shutdown(void)
 {
   SDL_Log("shutdown()");
@@ -924,6 +948,19 @@ int main(int argc, char *argv[])
 
   Botao botao;
   Botao botao_resolucao;
+
+  //-----------------------------------------------
+  // Verificar argumento da imagem ----------------
+
+  if (argc < 2)
+  {
+    printf("Formatacao de entrada deve ser: programa caminho_da_imagem.ext\n");
+
+    SDL_Quit();
+    return 1;
+  }
+
+  char *file = argv[1];
 
   //-----------------------------------------------
   /*
@@ -962,38 +999,15 @@ int main(int argc, char *argv[])
   botao_resolucao.click = false;
 
   //-----------------------------------------------
-  // Inicialização da SDL -------------------------
+  // Inicialização da SDL e ttf -------------------
 
-  if (!SDL_Init(SDL_INIT_VIDEO))
+  if (initialize() == SDL_APP_FAILURE)
   {
-    SDL_Log("Erro ao iniciar a SDL: %s", SDL_GetError());
-    return SDL_APP_FAILURE;
-  }
-
-  atexit(shutdown);
-
-  //-----------------------------------------------
-  // Inicialização do ttf -------------------------
-
-  if (!TTF_Init())
-{
-    SDL_Log("Erro ao iniciar SDL_ttf: %s", SDL_GetError());
-    SDL_Quit();
-    return SDL_APP_FAILURE;
-}
-
-  //-----------------------------------------------
-  // Verificar argumento da imagem ----------------
-
-  if (argc < 2)
-  {
-    printf("Formatacao de entrada deve ser: programa caminho_da_imagem.ext\n");
-
-    SDL_Quit();
+    SDL_Log("\t*** Erro ao inicializar a SDL.");
     return 1;
   }
 
-  char *file = argv[1];
+  atexit(shutdown);
 
   //-----------------------------------------------
   // Criar janela principal -----------------------
@@ -1020,19 +1034,29 @@ int main(int argc, char *argv[])
 
   //-----------------------------------------------
   //Carregar fonte --------------------------------
-  TTF_Font *fonte = TTF_OpenFont("assets/DejaVuSans.ttf", 8);
+  const char *base_path = SDL_GetBasePath();
+  
+  if (!base_path)
+  {
+    SDL_Log("Erro ao obter o caminho do executável: %s", SDL_GetError());
+    return 1;
+  }
 
-  if (!fonte)
-{
+  char caminho_fonte[1024];
+
+  snprintf(caminho_fonte,sizeof(caminho_fonte),"%sassets/DejaVuSans.ttf",base_path);
+
+  TTF_Font *fonte = TTF_OpenFont(caminho_fonte, 8);
+
+  if(!fonte)
+  {
     SDL_Log("Erro ao carregar fonte: %s", SDL_GetError());
-
     MyWindow_destroy(&infoWindow);
     MyWindow_destroy(&window);
     TTF_Quit();
     SDL_Quit();
-
     return 1;
-}
+  }
 
   //-----------------------------------------------
   // Carregamento da imagem -----------------------
@@ -1043,7 +1067,6 @@ int main(int argc, char *argv[])
   {
     MyWindow_destroy(&window);
     MyWindow_destroy(&infoWindow);
-
     TTF_Quit();
     SDL_Quit();
     return 1;
