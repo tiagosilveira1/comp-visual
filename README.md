@@ -1,6 +1,17 @@
-Este repositório é destinado para projetos envolvendo a disciplina de Computação Visual da FCI (Faculdade de Computação e Informática) Mackenzie (UPM) 2026/2.
-
 # Sistema de Processamento de Imagens
+
+## Nomes e RAs dos integrantes
+Lucas Akio Funada Tsukamoto, RA: 10425346
+
+Luiz Filipe de Almeida Tannus, RA: 10418230
+
+Tiago Silveira Lopes, RA: 10417600
+
+Vitor Alves Pereira, RA: 10410862
+
+Projeto acadêmico desenvolvido para a disciplina de Computação Visual
+da Faculdade de Computação e Informática (FCI) da Universidade
+Presbiteriana Mackenzie (UPM), no semestre 2026/2.
 
 ## 1. Sobre o projeto
 
@@ -85,13 +96,87 @@ na interface    |
 ## 4. Contribuições do grupo
 
 - Lucas Akio Funada Tsukamoto, RA: 10425346
+
 Implementação do histograma e da sua equalização.
 
 - Luiz Filipe de Almeida Tannus, RA: 10418230
-Documentações do projeto, como doc-parte1.md e doc-parte2.md.
+
+Documentações inicial e final do projeto: doc-parte1.md e doc-parte2.md.
 
 - Tiago Silveira Lopes, RA: 10417600
-Etapas iniciais como carregamento de imagens e conversão para escala de cinza.
+
+Organizador do repositório; Etapas iniciais como carregamento de imagens e conversão para escala de cinza.
 
 - Vitor Alves Pereira, RA: 10410862
-Implementação da janela secundária, funcionalidades dos botões e salvamento de imagens.
+
+Implementação da janela secundária, funcionalidades dos botões, etapa de exibição de imagem e salvamento de imagens.
+
+## 5. Ambiente de desenvolvimento
+| Componente | Versão |
+| :----: | :----: |
+| Sistema operacional | Windows 10 |
+| Compilador | gcc-v14.2.0 |
+| SDL3 | 3.4.14 |
+| SDL3_image | 3.4.6 |
+| SDL3_ttf | 3.2.2 |
+
+## 6. Dependências
+Para compilar e executar o projeto, são necessárias:
+
+GCC;
+SDL3;
+SDL3_image;
+SDL3_ttf;
+arquivo de fonte DejaVuSans.ttf.
+
+As bibliotecas SDL3, SDL3_image e SDL3_ttf devem estar instaladas
+e disponíveis nos caminhos configurados no Makefile, bem como possuírem as versões especificadas no item anterior.
+
+## 7. Compilação
+Para compilar o projeto, utilize o **makefile**.
+Na pasta principal do projeto, execute:
+```text
+make
+```
+O comando compila o arquivo main.c utilizando o compilador GCC e
+as bibliotecas SDL3, SDL3_image e SDL3_ttf.
+
+Obs: garanta que você tenha instalado as bibliotecas necessárias nas pastas de include e bin destacadas no makefile e nas versões especificadas desse projeto.
+
+## 8. Execução
+
+Após a compilação, o programa deve ser executado passando o caminho
+da imagem como argumento:
+
+```text
+.\programa caminho_da_imagem.ext
+```
+
+A imagem deve ser fornecida como argumento na linha de comando para que
+o programa possa carregá-la.
+
+## 9.Código-base e adaptações
+O desenvolvimento foi iniciado a partir do código-base fornecido pelo
+professor, disponível no [repositório da disciplina](https://github.com/profkishimoto/CompVis262).
+
+Durante o desenvolvimento, o código original foi adaptado para atender
+aos requisitos da atividade.
+
+Entre as principais adaptações estão:
+
+- Ampliação da estrutura MyImage para armazenar a imagem original;
+- Implementação da conversão para escala de cinza;
+- Implementação da geração e análise do histograma;
+- Implementação da equalização do histograma;
+- Implementação da restauração da imagem original;
+- Criação da estrutura responsável pelos botões;
+- Implementação dos estados dos botões;
+- Implementação da alteração da resolução da janela;
+- Implementação do salvamento da imagem;
+- Organização das funcionalidades em funções específicas.
+
+## 10. Licença
+
+Projeto desenvolvido para fins acadêmicos na disciplina de Computação
+Visual da Faculdade de Computação e Informática da Universidade
+Presbiteriana Mackenzie.
