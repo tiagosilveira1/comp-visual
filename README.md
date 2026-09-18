@@ -89,7 +89,7 @@ O programa possui as seguintes funcionalidades:
 na interface    |
 |    README.md   |   Documentação do projeto    |
 |    doc-parte1.md   |   Documentação exigida da primeira entrega    |
-|    doc-parte2.md   |   Documentação exigida da segunda entrega    |
+|    docs-final-proj1.md   |   Documentação exigida da segunda entrega    |
 |  .gitignore   |   Arquivo de configuração do Git que informa quais arquivos não devem ser enviados para o repositório.  |
 |  .vscode/   |  Contém arquivos específicos para processos de compilação desse projeto   |
 
